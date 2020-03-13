@@ -26,13 +26,14 @@ void LedBlink( void *pvParameters ){
 
 void LedCtrl( void *pvControl ){
 	
-	struct LedParams* sLedCtrl = (struct LedParams*)pvControl;
+	xTaskHandle xHandle = *(xTaskHandle*)pvControl;
 	static unsigned char ucCounter = 0;
 	
 	while(1){
-		(*sLedCtrl).ucBlinkingFreq = ((*sLedCtrl).ucBlinkingFreq*2)%15;
 		if((ucCounter++)%2) {
-			(*sLedCtrl).ucLedNr = ((*sLedCtrl).ucLedNr+1)%4;
+			vTaskSuspend(xHandle);
+		} else {
+			vTaskResume(xHandle);
 		}
 		vTaskDelay(1000);
 	}
@@ -40,11 +41,12 @@ void LedCtrl( void *pvControl ){
 
 int main(void){
 	
-	struct LedParams sLedCtrl = {1, 0};
+	struct LedParams sLedCtrl = {4, 0};
+	xTaskHandle xLedBlinkHandle;
 	
 	LedInit();
-	xTaskCreate(LedBlink, NULL , 100 , &sLedCtrl, 2 , NULL );
-	xTaskCreate(LedCtrl, NULL , 100 , &sLedCtrl, 2 , NULL );
+	xTaskCreate(LedBlink, NULL , 100 , &sLedCtrl, 2 , &xLedBlinkHandle );
+	xTaskCreate(LedCtrl, NULL , 100 , &xLedBlinkHandle, 2 , NULL );
 	vTaskStartScheduler();
 	while(1);
 }
