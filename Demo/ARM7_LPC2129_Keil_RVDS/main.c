@@ -1,52 +1,65 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "led.h"
+#include "semphr.h"
 
-struct LedParams {
-	unsigned char ucBlinkingFreq;
-	unsigned char ucLedNr;
-};
-
-void Delay(unsigned int uiMiliSec) {
+void PulseTrigger( void *pvParameters ){
 	
-	unsigned int uiLoopCtr, uiDelayLoopCount;
-	uiDelayLoopCount = uiMiliSec*12000;
-	for(uiLoopCtr=0;uiLoopCtr<uiDelayLoopCount;uiLoopCtr++) {}
-}
-
-void LedBlink( void *pvParameters ){
+	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
 	
-	struct LedParams* sLedCtrl = (struct LedParams*)pvParameters;
-	
-	while(1){
-		Led_Toggle((*sLedCtrl).ucLedNr);
-		vTaskDelay((1000/((*sLedCtrl).ucBlinkingFreq))/2);
+	while(1) {
+		vTaskDelay(1000);
+		xSemaphoreGive(xSemaphore);
 	}
 }
 
-void LedCtrl( void *pvControl ){
+void PulseTrigger2( void *pvParameters ){
 	
-	xTaskHandle xHandle = *(xTaskHandle*)pvControl;
-	static unsigned char ucCounter = 0;
+	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
 	
-	while(1){
-		if((ucCounter++)%2) {
-			vTaskSuspend(xHandle);
-		} else {
-			vTaskResume(xHandle);
+	vTaskDelay(333);
+	while(1) {
+		vTaskDelay(333);
+		xSemaphoreGive(xSemaphore);
+	}
+}
+
+void Pulse_LED0( void *pvParameters ){
+	
+	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
+	
+	while(1) {
+		if (pdTRUE == xSemaphoreTake(xSemaphore, portMAX_DELAY)) {
+			Led_Set(0);
+			vTaskDelay(100);
+			Led_Clr(0);
 		}
-		vTaskDelay(1000);
+	}
+}
+
+void Pulse_LED1( void *pvParameters ){
+	
+	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
+	
+	while(1) {
+		if (pdTRUE == xSemaphoreTake(xSemaphore, portMAX_DELAY)) {
+			Led_Set(1);
+			vTaskDelay(100);
+			Led_Clr(1);
+		}
 	}
 }
 
 int main(void){
 	
-	struct LedParams sLedCtrl = {4, 0};
-	xTaskHandle xLedBlinkHandle;
+	xSemaphoreHandle xSemaphore;
 	
+	vSemaphoreCreateBinary(xSemaphore);
 	LedInit();
-	xTaskCreate(LedBlink, NULL , 100 , &sLedCtrl, 2 , &xLedBlinkHandle );
-	xTaskCreate(LedCtrl, NULL , 100 , &xLedBlinkHandle, 2 , NULL );
+	xTaskCreate(Pulse_LED0, NULL , 100 , &xSemaphore, 2 , NULL );
+	xTaskCreate(Pulse_LED1, NULL , 100 , &xSemaphore, 2 , NULL );
+	xTaskCreate(PulseTrigger, NULL , 100 , &xSemaphore, 2 , NULL );
+	xTaskCreate(PulseTrigger2, NULL , 100 , &xSemaphore, 2 , NULL );
 	vTaskStartScheduler();
 	while(1);
 }

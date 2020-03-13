@@ -82,3 +82,39 @@ void Led_Toggle(unsigned char ucLedIndeks) {
 	else
 		IO1SET = uiBM;
 }
+
+void Led_Set (unsigned char ucLedIndeks) {
+	
+	switch(ucLedIndeks) {
+		case 0:
+			IO1SET = LED0_bm;
+			break;
+		case 1:
+			IO1SET = LED1_bm;
+			break;
+		case 2:
+			IO1SET = LED2_bm;
+			break;
+		case 3:
+			IO1SET = LED3_bm;
+			break;
+	}
+}
+
+void Led_Clr (unsigned char ucLedIndeks) {
+	
+	switch(ucLedIndeks) {
+		case 0:
+			IO1CLR = LED0_bm;
+			break;
+		case 1:
+			IO1CLR = LED1_bm;
+			break;
+		case 2:
+			IO1CLR = LED2_bm;
+			break;
+		case 3:
+			IO1CLR = LED3_bm;
+			break;
+	}
+}
