@@ -1,65 +1,61 @@
 #include "FreeRTOS.h"
 #include "task.h"
-#include "led.h"
+//#include "led.h"
 #include "semphr.h"
+#include "string.h"
+#include "uart.h"
+#include "keyboard.h"
 
-void PulseTrigger( void *pvParameters ){
+void Rtos_Transmitter_SendString (char pcString[]) {
 	
-	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
+	char cStringToSend[TRANSMITER_SIZE];
 	
-	while(1) {
-		vTaskDelay(1000);
-		xSemaphoreGive(xSemaphore);
-	}
+	CopyString(pcString, cStringToSend);
+	ReplaceCharactersInString(cStringToSend, '\n', ':');
+	AppendUIntToString(xTaskGetTickCount(), cStringToSend);
+	AppendString("\n",cStringToSend);
+	Transmitter_SendString(cStringToSend);
 }
 
-void PulseTrigger2( void *pvParameters ){
+void LettersTx (void *pvParameters){
 	
 	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
 	
-	vTaskDelay(333);
-	while(1) {
-		vTaskDelay(333);
-		xSemaphoreGive(xSemaphore);
-	}
-}
-
-void Pulse_LED0( void *pvParameters ){
-	
-	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
-	
-	while(1) {
+	while(1){
 		if (pdTRUE == xSemaphoreTake(xSemaphore, portMAX_DELAY)) {
-			Led_Set(0);
-			vTaskDelay(100);
-			Led_Clr(0);
+			Rtos_Transmitter_SendString("-ABCDEEFGH-\n");
+			while (eTransmitter_GetStatus()!=FREE){};
+			xSemaphoreGive(xSemaphore);
+			vTaskDelay(300);
 		}
 	}
 }
 
-void Pulse_LED1( void *pvParameters ){
+void KeyboardTx (void *pvParameters){
 	
 	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
 	
-	while(1) {
-		if (pdTRUE == xSemaphoreTake(xSemaphore, portMAX_DELAY)) {
-			Led_Set(1);
-			vTaskDelay(100);
-			Led_Clr(1);
+	while(1){
+		if( RELEASED != eKeyboardRead() ){
+			if (pdTRUE == xSemaphoreTake(xSemaphore, portMAX_DELAY)) {
+				Transmitter_SendString("-Keyboard-\n");
+				while (eTransmitter_GetStatus()!=FREE){};
+				xSemaphoreGive(xSemaphore);
+				vTaskDelay(300);
+			}
 		}
 	}
 }
 
-int main(void){
+int main( void ){
 	
 	xSemaphoreHandle xSemaphore;
 	
 	vSemaphoreCreateBinary(xSemaphore);
-	LedInit();
-	xTaskCreate(Pulse_LED0, NULL , 100 , &xSemaphore, 2 , NULL );
-	xTaskCreate(Pulse_LED1, NULL , 100 , &xSemaphore, 2 , NULL );
-	xTaskCreate(PulseTrigger, NULL , 100 , &xSemaphore, 2 , NULL );
-	xTaskCreate(PulseTrigger2, NULL , 100 , &xSemaphore, 2 , NULL );
+	KeyboardInit();
+	UART_InitWithInt(300);
+	xTaskCreate(LettersTx, NULL, 128, &xSemaphore, 1, NULL );
+	xTaskCreate(KeyboardTx, NULL, 128, &xSemaphore, 1, NULL );
 	vTaskStartScheduler();
 	while(1);
 }
