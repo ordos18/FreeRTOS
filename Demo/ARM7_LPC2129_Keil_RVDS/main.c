@@ -9,14 +9,14 @@
 #define SIZE 5
 
 char *apcQueue[SIZE];
-short cFront = -1, cRear = -1;
+short siFront = -1, siRear = -1;
 
 char Enqueue (char pcString[]) {
 	
-	if (cFront != (cRear+1) % SIZE) {
-		if(cFront == -1) cFront = 0;
-		cRear = (cRear+1) % SIZE;
-		apcQueue[cRear] = pcString;
+	if (siFront != (siRear+1) % SIZE) {
+		if(siFront == -1) siFront = 0;
+		siRear = (siRear+1) % SIZE;
+		apcQueue[siRear] = pcString;
 		return 1;
 	}
 	return 0;
@@ -26,13 +26,13 @@ char* pcDequeue (void) {
 	
 	char *pcElement;
 	
-	if (cFront != -1) {
-		pcElement = apcQueue[cFront];
-		if (cFront == cRear) {
-			cFront = -1;
-			cRear = -1;
+	if (siFront != -1) {
+		pcElement = apcQueue[siFront];
+		if (siFront == siRear) {
+			siFront = -1;
+			siRear = -1;
 		} else {
-			cFront = (cFront + 1) % SIZE;
+			siFront = (siFront + 1) % SIZE;
 		}
 		return pcElement;
 	}
@@ -60,8 +60,6 @@ void Rtos_Transmitter_SendString (void *pvParameters) {
 
 void LettersTx (void *pvParameters){
 	
-	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
-	
 	while(1) {
 		if (0 == Enqueue("-ABCDEFGH-\n") ) {
 			Led_Toggle(0);
@@ -72,8 +70,6 @@ void LettersTx (void *pvParameters){
 }
 
 void KeyboardTx (void *pvParameters){
-	
-	xSemaphoreHandle xSemaphore = *((xSemaphoreHandle *) pvParameters);
 	
 	while(1) {
 		if (RELEASED != eKeyboardRead() ) {
