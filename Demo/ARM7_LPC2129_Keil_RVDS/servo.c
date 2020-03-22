@@ -26,7 +26,6 @@ struct ServoControl {
 
 struct Servo sServo;
 
-
 struct ServoControl asQueue[QUEUE_SIZE];
 short siFront = -1, siRear = -1;
 
@@ -184,6 +183,7 @@ void ServoMoveSteps (unsigned int uiSteps) {
 void ServoInit (unsigned int uiServoFrequency) {
 	
 	LedInit();
+	DetectorInit();
 	ServoCalib();
 	xTaskCreate(Automat, NULL, 128, (void*)uiServoFrequency, 2, NULL );
 }
