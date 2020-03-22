@@ -3,91 +3,49 @@
 #include "led.h"
 #include "semphr.h"
 #include "string.h"
-#include "uart.h"
+#include "servo.h"
 #include "keyboard.h"
 
-#define SIZE 5
 
-char *apcQueue[SIZE];
-short siFront = -1, siRear = -1;
-
-char Enqueue (char pcString[]) {
+void Keyboard (void *pvParameters) {
 	
-	if (siFront != (siRear+1) % SIZE) {
-		if(siFront == -1) siFront = 0;
-		siRear = (siRear+1) % SIZE;
-		apcQueue[siRear] = pcString;
-		return 1;
-	}
-	return 0;
-}
-
-char* pcDequeue (void) {
-	
-	char *pcElement;
-	
-	if (siFront != -1) {
-		pcElement = apcQueue[siFront];
-		if (siFront == siRear) {
-			siFront = -1;
-			siRear = -1;
-		} else {
-			siFront = (siFront + 1) % SIZE;
-		}
-		return pcElement;
-	}
-	return NULL;
-}
-
-void Rtos_Transmitter_SendString (void *pvParameters) {
-	
-	char cStringToSend[TRANSMITER_SIZE];
-	char* pcElement;
+	enum eButtons eCurrButton, ePrevButton = RELEASED;
 	
 	while(1) {
-		if (eTransmitter_GetStatus() == FREE) {
-			pcElement = pcDequeue();
-			if(NULL != pcElement) {
-				CopyString(pcElement, cStringToSend);
-				ReplaceCharactersInString(cStringToSend, '\n', ':');
-				AppendUIntToString(xTaskGetTickCount(), cStringToSend);
-				AppendString("\n",cStringToSend);
-				Transmitter_SendString(cStringToSend);
+		eCurrButton = eKeyboardRead();
+		if (eCurrButton != ePrevButton) {
+			switch(eCurrButton) {
+				case BUTTON_0: ServoCalib();
+					break;
+				case BUTTON_1: ServoGoTo(12);
+					break;
+				case BUTTON_2: ServoGoTo(24);
+					break;
+				case BUTTON_3:
+					ServoSpeed(16);
+					ServoGoTo(12);
+					ServoSpeed(12);
+					ServoGoTo(24);
+					ServoSpeed(8);
+					ServoGoTo(36);
+					ServoSpeed(4);
+					ServoGoTo(0);
+					break;
+				default:
+					break;
 			}
 		}
-	}
-}
-
-void LettersTx (void *pvParameters){
-	
-	while(1) {
-		if (0 == Enqueue("-ABCDEFGH-\n") ) {
-			Led_Toggle(0);
-		}
-		vTaskDelay(300);
-		//vTaskDelay(700);
-	}
-}
-
-void KeyboardTx (void *pvParameters){
-	
-	while(1) {
-		if (RELEASED != eKeyboardRead() ) {
-			Enqueue("-Keyboard-\n");
-			vTaskDelay(300);
-		}
+		vTaskDelay(100);
+		ePrevButton = eCurrButton;
 	}
 }
 
 int main( void ){
 	
 	KeyboardInit();
-	LedInit();
-	UART_InitWithInt(300);
+	ServoInit(100);
 	
-	xTaskCreate(LettersTx, NULL, 128, NULL, 2, NULL );
-	xTaskCreate(KeyboardTx, NULL, 128, NULL, 2, NULL );
-	xTaskCreate(Rtos_Transmitter_SendString, NULL, 128, NULL, 2, NULL );
+	xTaskCreate(Keyboard, NULL, 128, NULL, 2, NULL );
 	vTaskStartScheduler();
 	while(1);
 }
