@@ -1,6 +1,9 @@
-#include <LPC210X.H>
+#include <LPC21xx.H>
 #include "uart.h"
 #include "string.h"
+#include "FreeRTOS.h"
+//#include "task.h"
+#include "queue.h"
 
 /************ UART ************/
 // U0LCR Line Control Register
@@ -28,11 +31,11 @@
 // VICVectCntlx Vector Control Registers
 #define mIRQ_SLOT_ENABLE                           0x00000020
 
-#define NULL '\0'
+//#define NULL '\0'
+#define QUEUE_WAIT 1
 
 ////////////// Zmienne globalne ////////////
 char cOdebranyZnak, cWysylanyZnak;
-struct ReceiverBuffer sBuffer;
 
 typedef struct TransmitterBuffer {
    char cData[TRANSMITER_SIZE];
@@ -43,6 +46,8 @@ typedef struct TransmitterBuffer {
 
 struct TransmitterBuffer sTransmitterBuffer;
 
+QueueHandle_t xQueueUART;
+
 ///////////////////////////////////////////
 __irq void UART0_Interrupt (void) {
    // jesli przerwanie z odbiornika (Rx)
@@ -51,8 +56,8 @@ __irq void UART0_Interrupt (void) {
 
    if ((uiCopyOfU0IIR & mINTERRUPT_PENDING_IDETIFICATION_BITFIELD) == mRX_DATA_AVALIABLE_INTERRUPT_PENDING) // odebrano znak
    {
-      cOdebranyZnak = U0RBR;
-	  Receiver_PutCharacterToBuffer(cOdebranyZnak);
+     cOdebranyZnak = U0RBR;
+		 xQueueSendFromISR(xQueueUART, &cOdebranyZnak, NULL);
    } 
    
    if ((uiCopyOfU0IIR & mINTERRUPT_PENDING_IDETIFICATION_BITFIELD) == mTHRE_INTERRUPT_PENDING)              // wyslano znak - nadajnik pusty 
@@ -102,31 +107,8 @@ void UART_InitWithInt(unsigned int uiBaudRate){
 	VICVectAddr1  = (unsigned long) UART0_Interrupt;             // set interrupt service routine address
 	VICVectCntl1  = mIRQ_SLOT_ENABLE | VIC_UART0_CHANNEL_NR;     // use it for UART 0 Interrupt
 	VICIntEnable |= (0x1 << VIC_UART0_CHANNEL_NR);               // Enable UART 0 Interrupt Channel
-}
-
-void Receiver_PutCharacterToBuffer (char cCharacter) {
 	
-	if( sBuffer.ucCharCtr + 1 > RECEIVER_SIZE ) {
-		sBuffer.eStatus = OVERFLOW;
-	} else if ('\r' == cCharacter) {
-		sBuffer.cData[sBuffer.ucCharCtr] = NULL;
-		sBuffer.eStatus = READY;
-		sBuffer.ucCharCtr = 0;
-	} else {
-		sBuffer.cData[sBuffer.ucCharCtr] = cCharacter;
-		sBuffer.ucCharCtr++;
-	}
-}
-
-enum eReceiverStatus eReceiver_GetStatus (void) {
-	
-	return sBuffer.eStatus;
-}
-
-void Receiver_GetStringCopy (char * ucDestination) {
-	
-	CopyString(sBuffer.cData, ucDestination);
-	sBuffer.eStatus = EMPTY;
+	xQueueUART = xQueueCreate(RECEIVER_SIZE, sizeof(char));
 }
 
 char Transmitter_GetCharacterFromBuffer (void) {
@@ -157,4 +139,16 @@ void Transmitter_SendString (char cString[]) {
 
 enum eTransmitterStatus eTransmitter_GetStatus (void) {
 	return sTransmitterBuffer.eStatus;
+}
+
+void UART_GetString (char *pcChar) {
+	
+	while (1) {
+		xQueueReceive(xQueueUART, pcChar, portMAX_DELAY);
+		if('\r' == *pcChar) {
+			*pcChar = NULL;
+			break;
+		}
+		pcChar++;
+	}
 }
