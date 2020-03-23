@@ -1,51 +1,35 @@
 #include "FreeRTOS.h"
 #include "task.h"
-#include "led.h"
 #include "semphr.h"
-#include "string.h"
-#include "servo.h"
-#include "keyboard.h"
+#include "led.h"
+#include "timer_interrupts.h"
 
+SemaphoreHandle_t xSemaphore = NULL;
 
-void Keyboard (void *pvParameters) {
+void LedBlink(void) {
 	
-	enum eButtons eCurrButton, ePrevButton = RELEASED;
+	Led_Toggle(0);
+}
+
+void HandlerTask (void *pvParameters) {
 	
 	while(1) {
-		eCurrButton = eKeyboardRead();
-		if (eCurrButton != ePrevButton) {
-			switch(eCurrButton) {
-				case BUTTON_0: ServoCalib();
-					break;
-				case BUTTON_1: ServoGoTo(12);
-					break;
-				case BUTTON_2: ServoGoTo(24);
-					break;
-				case BUTTON_3:
-					ServoSpeed(16);
-					ServoGoTo(12);
-					ServoSpeed(12);
-					ServoGoTo(24);
-					ServoSpeed(8);
-					ServoGoTo(36);
-					ServoSpeed(4);
-					ServoGoTo(0);
-					break;
-				default:
-					break;
-			}
-		}
-		vTaskDelay(100);
-		ePrevButton = eCurrButton;
+		xSemaphoreTake( xSemaphore, portMAX_DELAY);
+		LedBlink();
 	}
 }
 
-int main( void ){
+void InterruptHandler (void) {
 	
-	KeyboardInit();
-	ServoInit(100);
-	
-	xTaskCreate(Keyboard, NULL, 128, NULL, 2, NULL );
+	xSemaphoreGiveFromISR( xSemaphore, NULL);
+}
+
+int main(void) {
+
+	xSemaphore = xSemaphoreCreateBinary();
+	LedInit();
+	Timer1Interrupts_Init(500000, &InterruptHandler);
+	xTaskCreate(HandlerTask, NULL, 128, NULL, 3, NULL);
 	vTaskStartScheduler();
 	while(1);
 }
