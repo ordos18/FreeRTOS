@@ -1,79 +1,58 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "led.h"
-#include "semphr.h"
 #include "string.h"
 #include "uart.h"
 #include "keyboard.h"
+#include "queue.h"
 
-#define SIZE 5
+#define QUEUE_SIZE 5
+#define QUEUE_WAIT 10
 
-char *apcQueue[SIZE];
-short siFront = -1, siRear = -1;
+QueueHandle_t xQueueControl;
 
-char Enqueue (char pcString[]) {
-	
-	if (siFront != (siRear+1) % SIZE) {
-		if(siFront == -1) siFront = 0;
-		siRear = (siRear+1) % SIZE;
-		apcQueue[siRear] = pcString;
-		return 1;
-	}
-	return 0;
-}
-
-char* pcDequeue (void) {
-	
-	char *pcElement;
-	
-	if (siFront != -1) {
-		pcElement = apcQueue[siFront];
-		if (siFront == siRear) {
-			siFront = -1;
-			siRear = -1;
-		} else {
-			siFront = (siFront + 1) % SIZE;
-		}
-		return pcElement;
-	}
-	return NULL;
-}
 
 void Rtos_Transmitter_SendString (void *pvParameters) {
 	
 	char cStringToSend[TRANSMITER_SIZE];
-	char* pcElement;
+	char* pcElement = cStringToSend;
 	
 	while(1) {
 		if (eTransmitter_GetStatus() == FREE) {
-			pcElement = pcDequeue();
-			if(NULL != pcElement) {
+			if(pdPASS == xQueueReceive(xQueueControl, &pcElement, QUEUE_WAIT)) {
 				CopyString(pcElement, cStringToSend);
-				ReplaceCharactersInString(cStringToSend, '\n', ':');
-				AppendUIntToString(xTaskGetTickCount(), cStringToSend);
-				AppendString("\n",cStringToSend);
 				Transmitter_SendString(cStringToSend);
 			}
 		}
+		vTaskDelay(10);
 	}
 }
 
 void LettersTx (void *pvParameters){
 	
+	char cString[20];
+	char* pcElement = cString;
+	TickType_t tTickStart;
+	
 	while(1) {
-		if (0 == Enqueue("-ABCDEFGH-\n") ) {
+		tTickStart = xTaskGetTickCount();
+		if (pdPASS != xQueueSend(xQueueControl, &pcElement, QUEUE_WAIT) ) { //portMAX_DELAY
 			Led_Toggle(0);
 		}
+		CopyString("-ABCDEFGH-:", cString);
+		AppendUIntToString(xTaskGetTickCount()-tTickStart, cString);
+		AppendString("\n",cString);
 		vTaskDelay(300);
-		//vTaskDelay(700);
 	}
 }
 
 void KeyboardTx (void *pvParameters){
 	
+	char cString[] = "-Keyboard-\n";
+	char* pcElement = cString;
 	while(1) {
 		if (RELEASED != eKeyboardRead() ) {
-			Enqueue("-Keyboard-\n");
+			xQueueSend(xQueueControl, &pcElement, QUEUE_WAIT*50);
 			vTaskDelay(300);
 		}
 	}
@@ -85,6 +64,7 @@ int main( void ){
 	LedInit();
 	UART_InitWithInt(300);
 	
+	xQueueControl = xQueueCreate(QUEUE_SIZE, sizeof(char*));
 	xTaskCreate(LettersTx, NULL, 128, NULL, 2, NULL );
 	xTaskCreate(KeyboardTx, NULL, 128, NULL, 2, NULL );
 	xTaskCreate(Rtos_Transmitter_SendString, NULL, 128, NULL, 2, NULL );
