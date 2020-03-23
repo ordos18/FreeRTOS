@@ -3,10 +3,12 @@
 #include "servo.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
 #define DETECTOR_bm (1 << 10)		//P0.10
 #define FULL_ROTATION 48
 #define QUEUE_SIZE 10
+#define QUEUE_WAIT 10
 
 enum ServoState {IDLE, CALLIB, IN_PROGRESS};
 enum DetectorState {ACTIVE, INACTIVE};
@@ -26,42 +28,7 @@ struct ServoControl {
 
 struct Servo sServo;
 
-struct ServoControl asQueue[QUEUE_SIZE];
-short siFront = -1, siRear = -1;
-
-char cEnqueue (struct ServoControl sServoControl) {
-	
-	if (siFront != (siRear+1) % QUEUE_SIZE) {
-		if(siFront == -1) siFront = 0;
-		siRear = (siRear+1) % QUEUE_SIZE;
-		asQueue[siRear] = sServoControl;
-		return 1;
-	}
-	return 0;
-}
-
-struct ServoControl Dequeue (void) {
-	
-	struct ServoControl sControl;
-	
-	sControl = asQueue[siFront];
-	if (siFront == siRear) {
-		siFront = -1;
-		siRear = -1;
-	} else {
-		siFront = (siFront + 1) % QUEUE_SIZE;
-	}
-	
-	return sControl;
-}
-
-char cIsQueueEmpty (void) {
-	
-	if (siFront != -1) {
-		return 0;
-	}
-	return 1;
-}
+QueueHandle_t xQueueControl;
 
 
 void DetectorInit (void) {
@@ -85,9 +52,8 @@ void Automat (void *pvParameters) {
 	unsigned int uiServoDelay = 1000/((unsigned int) pvParameters);
 	
 	while (1) {
-		if (IDLE == sServo.eState && 0 == cIsQueueEmpty()) {
-			sControl = Dequeue();
-			
+		
+		if (IDLE == sServo.eState && pdPASS == xQueueReceive(xQueueControl, &sControl, QUEUE_WAIT)) {
 			switch (sControl.eFunction) {
 				case GOTO:
 					sServo.eState = IN_PROGRESS;
@@ -138,7 +104,7 @@ void Automat (void *pvParameters) {
 
 void ServoCalib (void) {
 	
-	while(sServo.eState != IDLE) {}
+	//while(sServo.eState != IDLE) {}
 	sServo.eState = CALLIB;
 }
 
@@ -148,7 +114,7 @@ void ServoGoTo (unsigned int uiValue) {
 	
 	sControl.eFunction = GOTO;
 	sControl.uiValue = uiValue;
-	cEnqueue(sControl);
+	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
 
 void ServoWait (unsigned int uiValue) {
@@ -157,7 +123,7 @@ void ServoWait (unsigned int uiValue) {
 	
 	sControl.eFunction = WAIT;
 	sControl.uiValue = uiValue;
-	cEnqueue(sControl);
+	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
 
 void ServoSpeed (unsigned int uiValue) {
@@ -166,7 +132,7 @@ void ServoSpeed (unsigned int uiValue) {
 	
 	sControl.eFunction = SPEED;
 	sControl.uiValue = uiValue;
-	cEnqueue(sControl);
+	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
 
 /*
@@ -186,4 +152,5 @@ void ServoInit (unsigned int uiServoFrequency) {
 	DetectorInit();
 	ServoCalib();
 	xTaskCreate(Automat, NULL, 128, (void*)uiServoFrequency, 2, NULL );
+	xQueueControl = xQueueCreate(QUEUE_SIZE, sizeof(struct ServoControl));
 }
