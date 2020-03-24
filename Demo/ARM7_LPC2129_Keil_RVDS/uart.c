@@ -2,7 +2,6 @@
 #include "uart.h"
 #include "string.h"
 #include "FreeRTOS.h"
-//#include "task.h"
 #include "queue.h"
 
 /************ UART ************/

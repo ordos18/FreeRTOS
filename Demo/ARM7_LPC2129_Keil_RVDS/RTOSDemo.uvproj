@@ -432,6 +432,11 @@
               <FileType>1</FileType>
               <FilePath>.\timer_interrupts.c</FilePath>
             </File>
+            <File>
+              <FileName>watch.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\watch.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -896,6 +901,11 @@
               <FileName>timer_interrupts.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\timer_interrupts.c</FilePath>
+            </File>
+            <File>
+              <FileName>watch.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\watch.c</FilePath>
             </File>
           </Files>
         </Group>

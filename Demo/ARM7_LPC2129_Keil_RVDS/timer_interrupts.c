@@ -16,8 +16,6 @@
 // VICVectCntlx Vector Control Registers
 #define mIRQ_SLOT_ENABLE 0x00000020
 
-struct Watch sWatch;
-
 void (*ptrTimer1InterruptFunction1)(void);
 //void (*ptrTimer1InterruptFunction2)(void);
 
@@ -51,14 +49,4 @@ void Timer1Interrupts_Init(unsigned int uiPeriod, void (*ptrInterruptFunction1)(
 
 	T1TCR |=  mCOUNTER_ENABLE; // start 
 
-}
-
-void WatchUpdate (void) {
-	sWatch.ucSeconds = sWatch.ucSeconds + 1;
-	sWatch.fSecondsValueChanged = 1;
-	if (60 == sWatch.ucSeconds) {
-		sWatch.ucSeconds = 0;
-		sWatch.ucMinutes = (sWatch.ucMinutes + 1) % 60;
-		sWatch.fMinutesValueChanged = 1;
-	}
 }
