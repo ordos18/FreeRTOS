@@ -37,15 +37,6 @@
 ////////////// Zmienne globalne ////////////
 char cOdebranyZnak, cWysylanyZnak;
 
-typedef struct TransmitterBuffer {
-   char cData[TRANSMITER_SIZE];
-   enum eTransmitterStatus eStatus;
-   unsigned char fLastCharacter;
-   unsigned char cCharCtr;
-} TransmitterBuffer;
-
-struct TransmitterBuffer sTransmitterBuffer;
-
 QueueHandle_t xQueueUART;
 
 ///////////////////////////////////////////
@@ -62,33 +53,16 @@ __irq void UART0_Interrupt (void) {
    
    if ((uiCopyOfU0IIR & mINTERRUPT_PENDING_IDETIFICATION_BITFIELD) == mTHRE_INTERRUPT_PENDING)              // wyslano znak - nadajnik pusty 
    {
-	   cWysylanyZnak = Transmitter_GetCharacterFromBuffer();
-	   if (cWysylanyZnak != NULL) {
-		   U0THR = cWysylanyZnak;
-	   }
+		 if (pdPASS == xQueueReceiveFromISR(xQueueUART, &cWysylanyZnak, NULL)) {
+			 U0THR = cWysylanyZnak;
+		 }
       
    }
 
    VICVectAddr = 0; // Acknowledge Interrupt
 }
-/*
+
 ////////////////////////////////////////////
-void UART_InitWithInt(unsigned int uiBaudRate){
-
-   // UART0
-   PINSEL0 = PINSEL0 | mUART0_RX | mUART0_TX;                   // ustawic pina na odbiornik uart0
-   U0LCR  |= m8BIT_UART_WORD_LENGTH | mDIVISOR_LATCH_ACCES_BIT; // dlugosc slowa, DLAB = 1
-   U0DLL   = ((15000000)/16)/uiBaudRate;                        // predkosc transmisji
-   U0LCR  &= (~mDIVISOR_LATCH_ACCES_BIT);                       // DLAB = 0
-   U0IER  |= mRX_DATA_AVALIABLE_INTERRUPT_ENABLE;               // aktywacja przerwan po odebraniu danych (RDA)
-   U0IER  |= mTHRE_INTERRUPT_PENDING;            			    // aktywacja przerwan po wyslaniu danych (THRE)
-
-   // INT
-   VICVectAddr1  = (unsigned long) UART0_Interrupt;             // set interrupt service routine address
-   VICVectCntl1  = mIRQ_SLOT_ENABLE | VIC_UART0_CHANNEL_NR;     // use it for UART 0 Interrupt
-   VICIntEnable |= (0x1 << VIC_UART0_CHANNEL_NR);               // Enable UART 0 Interrupt Channel
-}
-*/
 void UART_InitWithInt(unsigned int uiBaudRate){
 	
 	unsigned long ulDivisor, ulWantedClock;
@@ -111,38 +85,14 @@ void UART_InitWithInt(unsigned int uiBaudRate){
 	xQueueUART = xQueueCreate(RECEIVER_SIZE, sizeof(char));
 }
 
-char Transmitter_GetCharacterFromBuffer (void) {
-	
-	if (NULL == sTransmitterBuffer.fLastCharacter) {
-		sTransmitterBuffer.eStatus = FREE;
-		return NULL;
-	} else {
-		sTransmitterBuffer.fLastCharacter = sTransmitterBuffer.cData[sTransmitterBuffer.cCharCtr];
-		sTransmitterBuffer.cCharCtr = sTransmitterBuffer.cCharCtr + 1;
-		if (sTransmitterBuffer.fLastCharacter != NULL) {
-			return sTransmitterBuffer.fLastCharacter;
-		} else {
-			return '\r';
-		}
-	}
-}
-
 void Transmitter_SendString (char cString[]) {
 	
-	CopyString(cString, sTransmitterBuffer.cData);
-	//AppendString("\n", sTransmitterBuffer.cData);
 	U0THR = cString[0];
-	sTransmitterBuffer.fLastCharacter = cString[0];
-	sTransmitterBuffer.eStatus = BUSY;
-	sTransmitterBuffer.cCharCtr = 1;
-}
-
-enum eTransmitterStatus eTransmitter_GetStatus (void) {
-	return sTransmitterBuffer.eStatus;
 }
 
 void UART_GetString (char *pcChar) {
 	
+	while (0 != uxQueueMessagesWaiting(xQueueUART)) {}
 	while (1) {
 		xQueueReceive(xQueueUART, pcChar, portMAX_DELAY);
 		if('\r' == *pcChar) {
@@ -150,5 +100,25 @@ void UART_GetString (char *pcChar) {
 			break;
 		}
 		pcChar++;
+	}
+}
+
+void UART_PutString (char *pcChar) {
+	
+	const char cTerm = '\r';
+	unsigned char ucCharCounter = 1;
+	
+	if (NULL != *pcChar) {
+		if (0 == uxQueueMessagesWaiting(xQueueUART)) {
+			Transmitter_SendString(pcChar);
+		} else {
+			xQueueSend(xQueueUART, pcChar, QUEUE_WAIT);
+		}
+		
+		while (NULL != *(pcChar+ucCharCounter)) {
+			xQueueSend(xQueueUART, pcChar+ucCharCounter, QUEUE_WAIT);
+			ucCharCounter++;
+		}
+		xQueueSend(xQueueUART, &cTerm, QUEUE_WAIT);
 	}
 }

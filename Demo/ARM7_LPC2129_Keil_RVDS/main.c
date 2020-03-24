@@ -6,15 +6,15 @@
 
 void UartRx( void *pvParameters ) {
 	
-	char acBuffer[RECEIVER_SIZE];
+	char acBuffer[RECEIVER_SIZE] = "0123456789\n";
 	
 	while(1){
-		UART_GetString(acBuffer);
-		if (EQUAL == eCompareString(acBuffer, "zero")) {
-			Led_Toggle(0);
-		} else if (EQUAL == eCompareString(acBuffer, "jeden")) {
-			Led_Toggle(1);
-		}
+		vTaskDelay(500);
+		UART_PutString(acBuffer);
+		//vTaskDelay(20);
+		UART_PutString(acBuffer);
+		//vTaskDelay(20);
+		UART_PutString(acBuffer);
 	}
 }
 
