@@ -7,18 +7,12 @@
 
 #define DETECTOR_bm (1 << 10)		//P0.10
 #define FULL_ROTATION 48
-#define QUEUE_SIZE 3
+#define CONTROL_QUEUE_SIZE 3
+#define STATUS_QUEUE_SIZE 1
 #define QUEUE_WAIT 1
 
-enum ServoState {IDLE, CALLIB, IN_PROGRESS};
 enum DetectorState {ACTIVE, INACTIVE};
 enum Function {GOTO, WAIT, SPEED};
-
-struct Servo {
-	
-	enum ServoState eState;
-	unsigned int uiCurrentPosition;
-};
 
 struct ServoControl {
 	
@@ -26,9 +20,7 @@ struct ServoControl {
 	unsigned int uiValue;
 };
 
-struct Servo sServo;
-
-QueueHandle_t xQueueControl;
+QueueHandle_t xQueueControl, xQueueStatus;
 
 
 void DetectorInit (void) {
@@ -49,16 +41,20 @@ enum DetectorState eReadDetector (void) {
 void Automat (void *pvParameters) {
 	
 	struct ServoControl sControl;
+	struct Servo sServo;
 	unsigned int uiServoDelay = 1000/((unsigned int) pvParameters);
 	
 	while (1) {
+		xQueuePeek(xQueueStatus, &sServo, QUEUE_WAIT);
 		
-		if (IDLE == sServo.eState && pdPASS == xQueueReceive(xQueueControl, &sControl, QUEUE_WAIT)) {
+		if (_IDLE == sServo.eState && pdPASS == xQueueReceive(xQueueControl, &sControl, QUEUE_WAIT)) {
 			switch (sControl.eFunction) {
 				case GOTO:
-					sServo.eState = IN_PROGRESS;
+					sServo.eState = _IN_PROGRESS;
 					break;
 				case WAIT:
+					sServo.eState = _WAITING;
+						xQueueOverwrite(xQueueStatus, &sServo);
 					vTaskDelay(sControl.uiValue);
 					break;
 				case SPEED:
@@ -70,17 +66,18 @@ void Automat (void *pvParameters) {
 		}
 		
 		switch( sServo.eState ) {
-			case IDLE:
+			case _IDLE:
 				break;
-			case CALLIB:
+			case _CALIBRATION:
 				if( 0 == eReadDetector() ) {
-					sServo.eState = IDLE;
+					sServo.eState = _IDLE;
 					sServo.uiCurrentPosition = 0;
 				} else {
 					LedStepLeft();
+					sServo.uiCurrentPosition--;
 				}
 				break;
-			case IN_PROGRESS:
+			case _IN_PROGRESS:
 				if( sServo.uiCurrentPosition < sControl.uiValue ) {
 					LedStepRight();
 					sServo.uiCurrentPosition++;
@@ -92,20 +89,26 @@ void Automat (void *pvParameters) {
 				else {
 					sServo.uiCurrentPosition = sServo.uiCurrentPosition % FULL_ROTATION;
 					if (sControl.uiValue == sServo.uiCurrentPosition) {
-						sServo.eState = IDLE;
+						sServo.eState = _IDLE;
 					}
 				}
 				break;
-			default: {}
+			default:
+				sServo.eState = _IDLE;
+				break;
 		}
+		xQueueOverwrite(xQueueStatus, &sServo);
 		vTaskDelay(uiServoDelay);
 	}
 }
 
 void ServoCalib (void) {
 	
-	//while(sServo.eState != IDLE) {}
-	sServo.eState = CALLIB;
+	struct Servo sServo;
+	
+	xQueueReceive(xQueueStatus, &sServo, QUEUE_WAIT);
+	sServo.eState = _CALIBRATION;
+	xQueueSend(xQueueStatus, &sServo, QUEUE_WAIT);
 }
 
 void ServoGoTo (unsigned int uiValue) {
@@ -134,6 +137,19 @@ void ServoSpeed (unsigned int uiValue) {
 	sControl.uiValue = uiValue;
 	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
+/*
+struct Servo Servo_State (void) {
+	
+	return sServo;
+}
+*/
+struct Servo Servo_State(void){
+	
+	struct Servo sServoStatus;
+	
+	xQueuePeek(xQueueStatus, &sServoStatus, portMAX_DELAY);
+	return sServoStatus;
+}
 
 /*
 void ServoMoveDegrees (unsigned int uiDegrees) {
@@ -148,9 +164,15 @@ void ServoMoveSteps (unsigned int uiSteps) {
 */
 void ServoInit (unsigned int uiServoFrequency) {
 	
+	struct Servo sServo = {_IDLE, 0};
+	
+	xTaskCreate(Automat, NULL, 128, (void*)uiServoFrequency, 2, NULL );
+	xQueueControl = xQueueCreate(CONTROL_QUEUE_SIZE, sizeof(struct ServoControl));
+	xQueueStatus = xQueueCreate(STATUS_QUEUE_SIZE, sizeof(struct Servo));
+	
+	xQueueSend(xQueueStatus, &sServo, QUEUE_WAIT);
+
 	LedInit();
 	DetectorInit();
 	ServoCalib();
-	xTaskCreate(Automat, NULL, 128, (void*)uiServoFrequency, 2, NULL );
-	xQueueControl = xQueueCreate(QUEUE_SIZE, sizeof(struct ServoControl));
 }

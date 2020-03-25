@@ -1,8 +1,8 @@
 #define MAX_TOKEN_NR 3 // maksymalna dopuszczalna ilosc tokenow
 #define MAX_KEYWORD_STRING_LTH 20 // maksymalna dlugosc komendy
-#define MAX_KEYWORD_NR 3
+#define MAX_KEYWORD_NR 4
 
-typedef enum KeywordCode {ID, CALIB, GOTO} KeywordCode;
+typedef enum KeywordCode {ID, CALIB, GOTO, STATE} KeywordCode;
 
 typedef union TokenValue {
 	enum KeywordCode	eKeyword; // jezeli KEYWORD

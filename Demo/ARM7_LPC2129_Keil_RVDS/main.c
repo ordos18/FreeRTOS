@@ -17,13 +17,13 @@ void UartRx_MainThread( void *pvParameters ) {
 	
 	extern Token asToken[];
 	extern unsigned char ucTokenNr;
-	char cQueueEvent[RECEIVER_SIZE];
+	char acQueueEvent[RECEIVER_SIZE];
 	
 	while(1){
-		UART_GetString(cQueueEvent);
-		xQueueSend(xQueueMain, cQueueEvent, QUEUE_WAIT);
+		UART_GetString(acQueueEvent);
+		xQueueSend(xQueueMain, acQueueEvent, QUEUE_WAIT);
 		
-		DecodeMsg(cQueueEvent);
+		DecodeMsg(acQueueEvent);
 		if( (ucTokenNr > 0) && (asToken[0].eType == KEYWORD) ) {
 			switch(asToken[0].uValue.eKeyword) {
 				case CALIB:
@@ -45,30 +45,31 @@ void UartRx_MainThread( void *pvParameters ) {
 void Keyboard_MainThread( void *pvParameters ) {
 	
 	enum eButtons eButton;
-	char cQueueEvent[RECEIVER_SIZE];
+	char acQueueEvent[RECEIVER_SIZE];
 	
 	while(1){
 		eButton = eKeyboardRead();
 		switch (eButton) {
 			case BUTTON_0:
-				CopyString("calib", cQueueEvent);
+				CopyString("calib", acQueueEvent);
 				break;
 			case BUTTON_1:
-				CopyString("goto ", cQueueEvent);
-				AppendUIntToString(12, cQueueEvent);
+				ServoWait(5000);
+				CopyString("goto ", acQueueEvent);
+				AppendUIntToString(12, acQueueEvent);
 				break;
 			case BUTTON_2:
-				CopyString("goto ", cQueueEvent);
-				AppendUIntToString(24, cQueueEvent);
+				CopyString("goto ", acQueueEvent);
+				AppendUIntToString(24, acQueueEvent);
 				break;
 			case BUTTON_3:
-				CopyString("goto ", cQueueEvent);
-				AppendUIntToString(36, cQueueEvent);
+				CopyString("goto ", acQueueEvent);
+				AppendUIntToString(36, acQueueEvent);
 				break;
 			default:
 				break;
 		}
-		xQueueSend(xQueueMain, cQueueEvent, QUEUE_WAIT);
+		xQueueSend(xQueueMain, acQueueEvent, QUEUE_WAIT);
 		vTaskDelay(10);
 	}
 }
@@ -77,11 +78,13 @@ void Executor_MainThread( void *pvParameters ) {
 	
 	extern Token asToken[];
 	extern unsigned char ucTokenNr;
-	char cQueueEvent[RECEIVER_SIZE];
+	char acQueueEvent[RECEIVER_SIZE];
+	char cStringToSend[RECEIVER_SIZE];
+	struct Servo sServoStatus;
 	
 	while(1){
-		xQueueReceive(xQueueMain, cQueueEvent, portMAX_DELAY);
-		DecodeMsg(cQueueEvent);
+		xQueueReceive(xQueueMain, acQueueEvent, portMAX_DELAY);
+		DecodeMsg(acQueueEvent);
 		
 		if( (ucTokenNr > 0) && (asToken[0].eType == KEYWORD) ) {
 			switch(asToken[0].uValue.eKeyword) {
@@ -96,6 +99,19 @@ void Executor_MainThread( void *pvParameters ) {
 						ServoGoTo(asToken[1].uValue.uiNumber);
 					}
 					break;
+				case STATE:
+					sServoStatus = Servo_State();
+					switch (sServoStatus.eState){
+						case _CALIBRATION	: CopyString("\nstate calib ",cStringToSend);				break;
+						case _IDLE 				: CopyString("\nstate idle ",cStringToSend);				break;
+						case _IN_PROGRESS	: CopyString("\nstate in_progress ",cStringToSend);	break;
+						case _WAITING			: CopyString("\nstate waiting ",cStringToSend);			break;
+						default: break;
+					};
+					AppendUIntToString(sServoStatus.uiCurrentPosition,cStringToSend);
+					AppendString("\n",cStringToSend);
+					UART_PutString(cStringToSend);
+					break;
 				default: {}
 			}
 		}
@@ -106,7 +122,7 @@ void Executor_MainThread( void *pvParameters ) {
 
 int main( void ) {
 	
-	ServoInit(100);
+	ServoInit(10);
 	KeyboardInit();
 	UART_InitWithInt(9600);
 	
