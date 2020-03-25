@@ -1,74 +1,119 @@
 #include "FreeRTOS.h"
 #include "task.h"
-#include "led.h"
+#include "queue.h"
+
 #include "keyboard.h"
-#include "watch.h"
 #include "uart.h"
 #include "string.h"
+#include "command_decoder.h"
+#include "servo.h"
 
-void UartTxWatch( void *pvParameters ) {
+#define QUEUE_SIZE 10
+#define QUEUE_WAIT 1
+
+QueueHandle_t xQueueMain;
+
+void UartRx_MainThread( void *pvParameters ) {
 	
-	struct WatchEvent sWatchEvent;
-	char cStringToSend[15];
+	extern Token asToken[];
+	extern unsigned char ucTokenNr;
+	char cQueueEvent[RECEIVER_SIZE];
 	
 	while(1){
-		sWatchEvent = sWatch_Read();
-		switch (sWatchEvent.eTimeUnit) {
-			case SECONDS:
-				CopyString("sec ", cStringToSend);
-				break;
-			case MINUTES:
-				CopyString("min ", cStringToSend);
-				break;
-			default:
-				break;
+		UART_GetString(cQueueEvent);
+		xQueueSend(xQueueMain, cQueueEvent, QUEUE_WAIT);
+		
+		DecodeMsg(cQueueEvent);
+		if( (ucTokenNr > 0) && (asToken[0].eType == KEYWORD) ) {
+			switch(asToken[0].uValue.eKeyword) {
+				case CALIB:
+					UART_PutString("\nok\n");
+					break;
+				case GOTO:
+					if (ucTokenNr > 1) {
+						UART_PutString("\nok\n");
+					}
+					break;
+				default: {}
+			}
 		}
-		AppendUIntToString(sWatchEvent.TimeValue, cStringToSend);
-		AppendString("\n", cStringToSend);
-		UART_PutString(cStringToSend);
+		
 		vTaskDelay(10);
 	}
 }
 
-void UartTxButton( void *pvParameters ) {
+void Keyboard_MainThread( void *pvParameters ) {
 	
 	enum eButtons eButton;
-	char cStringToSend[15];
+	char cQueueEvent[RECEIVER_SIZE];
 	
 	while(1){
 		eButton = eKeyboardRead();
-		CopyString("button ", cStringToSend);
 		switch (eButton) {
 			case BUTTON_0:
-				AppendUIntToString(0, cStringToSend);
+				CopyString("calib", cQueueEvent);
 				break;
 			case BUTTON_1:
-				AppendUIntToString(1, cStringToSend);
+				CopyString("goto ", cQueueEvent);
+				AppendUIntToString(12, cQueueEvent);
 				break;
 			case BUTTON_2:
-				AppendUIntToString(2, cStringToSend);
+				CopyString("goto ", cQueueEvent);
+				AppendUIntToString(24, cQueueEvent);
 				break;
 			case BUTTON_3:
-				AppendUIntToString(3, cStringToSend);
+				CopyString("goto ", cQueueEvent);
+				AppendUIntToString(36, cQueueEvent);
 				break;
 			default:
 				break;
 		}
-		AppendString("\n", cStringToSend);
-		UART_PutString(cStringToSend);
+		xQueueSend(xQueueMain, cQueueEvent, QUEUE_WAIT);
+		vTaskDelay(10);
+	}
+}
+
+void Executor_MainThread( void *pvParameters ) {
+	
+	extern Token asToken[];
+	extern unsigned char ucTokenNr;
+	char cQueueEvent[RECEIVER_SIZE];
+	
+	while(1){
+		xQueueReceive(xQueueMain, cQueueEvent, portMAX_DELAY);
+		DecodeMsg(cQueueEvent);
+		
+		if( (ucTokenNr > 0) && (asToken[0].eType == KEYWORD) ) {
+			switch(asToken[0].uValue.eKeyword) {
+				case ID:
+					UART_PutString("\nID: MTM\n");
+					break;
+				case CALIB:
+					ServoCalib();
+					break;
+				case GOTO:
+					if (ucTokenNr > 1) {
+						ServoGoTo(asToken[1].uValue.uiNumber);
+					}
+					break;
+				default: {}
+			}
+		}
+		
 		vTaskDelay(10);
 	}
 }
 
 int main( void ) {
 	
-	LedInit();
-	Watch_Init();
+	ServoInit(100);
 	KeyboardInit();
 	UART_InitWithInt(9600);
 	
-	xTaskCreate( UartTxWatch, NULL , 100 , NULL, 1 , NULL );
-	xTaskCreate( UartTxButton, NULL , 100 , NULL, 1 , NULL );
+	xQueueMain = xQueueCreate(QUEUE_SIZE, RECEIVER_SIZE);
+	xTaskCreate( UartRx_MainThread, NULL , 100 , NULL, 1 , NULL );
+	xTaskCreate( Keyboard_MainThread, NULL , 100 , NULL, 1 , NULL );
+	xTaskCreate( Executor_MainThread, NULL , 100 , NULL, 1 , NULL );
 	vTaskStartScheduler();
 	
 	while(1);

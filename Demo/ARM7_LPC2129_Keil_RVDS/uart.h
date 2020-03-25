@@ -1,5 +1,5 @@
 
-#define RECEIVER_SIZE 100
+#define RECEIVER_SIZE 20
 //#define TRANSMITER_SIZE 100
 
 

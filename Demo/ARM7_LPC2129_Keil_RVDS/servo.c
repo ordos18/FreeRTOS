@@ -7,8 +7,8 @@
 
 #define DETECTOR_bm (1 << 10)		//P0.10
 #define FULL_ROTATION 48
-#define QUEUE_SIZE 10
-#define QUEUE_WAIT 10
+#define QUEUE_SIZE 3
+#define QUEUE_WAIT 1
 
 enum ServoState {IDLE, CALLIB, IN_PROGRESS};
 enum DetectorState {ACTIVE, INACTIVE};
@@ -113,7 +113,7 @@ void ServoGoTo (unsigned int uiValue) {
 	struct ServoControl sControl;
 	
 	sControl.eFunction = GOTO;
-	sControl.uiValue = uiValue;
+	sControl.uiValue = uiValue % FULL_ROTATION;
 	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
 

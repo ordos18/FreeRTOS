@@ -403,11 +403,6 @@
               <FilePath>.\main.c</FilePath>
             </File>
             <File>
-              <FileName>led.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\led.c</FilePath>
-            </File>
-            <File>
               <FileName>uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\uart.c</FilePath>
@@ -433,9 +428,14 @@
               <FilePath>.\timer_interrupts.c</FilePath>
             </File>
             <File>
-              <FileName>watch.c</FileName>
+              <FileName>command_decoder.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\watch.c</FilePath>
+              <FilePath>.\command_decoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\led.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -873,11 +873,6 @@
               <FilePath>.\main.c</FilePath>
             </File>
             <File>
-              <FileName>led.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\led.c</FilePath>
-            </File>
-            <File>
               <FileName>uart.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\uart.c</FilePath>
@@ -903,9 +898,14 @@
               <FilePath>.\timer_interrupts.c</FilePath>
             </File>
             <File>
-              <FileName>watch.c</FileName>
+              <FileName>command_decoder.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\watch.c</FilePath>
+              <FilePath>.\command_decoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\led.c</FilePath>
             </File>
           </Files>
         </Group>
