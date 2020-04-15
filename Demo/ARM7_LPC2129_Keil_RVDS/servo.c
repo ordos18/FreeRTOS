@@ -151,6 +151,6 @@ void ServoInit (unsigned int uiServoFrequency) {
 	LedInit();
 	DetectorInit();
 	ServoCalib();
-	xTaskCreate(Automat, NULL, 128, (void*)uiServoFrequency, 2, NULL );
 	xQueueControl = xQueueCreate(QUEUE_SIZE, sizeof(struct ServoControl));
+	xTaskCreate(Automat, NULL, 128, (void*)uiServoFrequency, 2, NULL );
 }
