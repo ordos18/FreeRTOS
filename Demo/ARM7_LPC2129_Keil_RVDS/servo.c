@@ -12,7 +12,7 @@
 #define QUEUE_WAIT 1
 
 enum DetectorState {ACTIVE, INACTIVE};
-enum Function {GOTO, WAIT, SPEED};
+enum Function {F_GOTO, F_WAIT, F_SPEED, F_CALIB};
 
 struct ServoControl {
 	
@@ -47,26 +47,27 @@ void Automat (void *pvParameters) {
 	while (1) {
 		xQueuePeek(xQueueStatus, &sServo, QUEUE_WAIT);
 		
-		if (_IDLE == sServo.eState && pdPASS == xQueueReceive(xQueueControl, &sControl, QUEUE_WAIT)) {
-			switch (sControl.eFunction) {
-				case GOTO:
-					sServo.eState = _IN_PROGRESS;
-					break;
-				case WAIT:
-					sServo.eState = _WAITING;
-						xQueueOverwrite(xQueueStatus, &sServo);
-					vTaskDelay(sControl.uiValue);
-					break;
-				case SPEED:
-					uiServoDelay = sControl.uiValue;
-					break;
-				default:
-					break;
-			}
-		}
-		
 		switch( sServo.eState ) {
 			case _IDLE:
+				xQueueReceive(xQueueControl, &sControl, portMAX_DELAY);
+				switch (sControl.eFunction) {
+					case F_GOTO:
+						sServo.eState = _IN_PROGRESS;
+						break;
+					case F_WAIT:
+						sServo.eState = _WAITING;
+							xQueueOverwrite(xQueueStatus, &sServo);
+						vTaskDelay(sControl.uiValue);
+						break;
+					case F_SPEED:
+						uiServoDelay = sControl.uiValue;
+						break;
+					case F_CALIB:
+						sServo.eState = _CALIBRATION;
+						break;
+					default:
+						break;
+				}
 				break;
 			case _CALIBRATION:
 				if( 0 == eReadDetector() ) {
@@ -104,18 +105,18 @@ void Automat (void *pvParameters) {
 
 void ServoCalib (void) {
 	
-	struct Servo sServo;
+	struct ServoControl sControl;
 	
-	xQueueReceive(xQueueStatus, &sServo, QUEUE_WAIT);
-	sServo.eState = _CALIBRATION;
-	xQueueSend(xQueueStatus, &sServo, QUEUE_WAIT);
+	sControl.eFunction = F_CALIB;
+	sControl.uiValue = 0;
+	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
 
 void ServoGoTo (unsigned int uiValue) {
 	
 	struct ServoControl sControl;
 	
-	sControl.eFunction = GOTO;
+	sControl.eFunction = F_GOTO;
 	sControl.uiValue = uiValue % FULL_ROTATION;
 	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
@@ -124,7 +125,7 @@ void ServoWait (unsigned int uiValue) {
 	
 	struct ServoControl sControl;
 	
-	sControl.eFunction = WAIT;
+	sControl.eFunction = F_WAIT;
 	sControl.uiValue = uiValue;
 	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
@@ -133,7 +134,7 @@ void ServoSpeed (unsigned int uiValue) {
 	
 	struct ServoControl sControl;
 	
-	sControl.eFunction = SPEED;
+	sControl.eFunction = F_SPEED;
 	sControl.uiValue = uiValue;
 	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
