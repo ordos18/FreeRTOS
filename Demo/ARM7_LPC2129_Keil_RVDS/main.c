@@ -16,15 +16,17 @@ void Rtos_Transmitter_SendString (char pcString[]) {
 	char cStringToSend[TRANSMITER_SIZE];
 	
 	tTickStart = xTaskGetTickCount();
-	if (pdTRUE == xSemaphoreTake(xSemaphore, portMAX_DELAY)) {
-		CopyString(pcString, cStringToSend);
-		AppendString(":",cStringToSend);
-		AppendUIntToString(xTaskGetTickCount()-tTickStart, cStringToSend);
-		AppendString("\n",cStringToSend);
-		Transmitter_SendString(cStringToSend);
-		while (eTransmitter_GetStatus()!=FREE){};
-		xSemaphoreGive(xSemaphore);
-	}
+	xSemaphoreTake(xSemaphore, portMAX_DELAY);
+	CopyString(pcString, cStringToSend);
+	AppendString(":",cStringToSend);
+	Transmitter_SendString(cStringToSend);
+	while (eTransmitter_GetStatus()!=FREE){};
+		
+	UIntToHexStr(xTaskGetTickCount()-tTickStart, cStringToSend);
+	AppendString("\n",cStringToSend);
+	Transmitter_SendString(cStringToSend);
+	while (eTransmitter_GetStatus()!=FREE){};
+	xSemaphoreGive(xSemaphore);
 }
 
 void LettersTx (void *pvParameters){
