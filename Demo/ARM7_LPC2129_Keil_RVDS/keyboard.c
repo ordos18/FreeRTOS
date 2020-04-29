@@ -41,10 +41,9 @@ void Keyboard_Thread( void *pvParameters ) {
 		eButton = eReadButtons();
 		if (RELEASED != eButton && eButtonPrev != eButton) {
 			xQueueSend(xQueueKeyboard, &eButton, QUEUE_WAIT);
-			vTaskDelay(100);
 		}
 		eButtonPrev = eButton;
-		vTaskDelay(10);
+		vTaskDelay(100);
 	}
 }
 
