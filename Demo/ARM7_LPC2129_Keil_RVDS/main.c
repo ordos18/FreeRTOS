@@ -1,8 +1,6 @@
 #include "FreeRTOS.h"
 #include "task.h"
-#include "led.h"
 #include "uart.h"
-#include "string.h"
 
 void UartRx( void *pvParameters ) {
 	
@@ -20,7 +18,6 @@ void UartRx( void *pvParameters ) {
 
 int main( void ) {
 	
-	LedInit();
 	UART_InitWithInt(9600);
 	
 	xTaskCreate( UartRx, NULL , 100 , NULL, 1 , NULL );
