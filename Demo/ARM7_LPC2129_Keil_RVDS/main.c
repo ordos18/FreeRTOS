@@ -70,7 +70,6 @@ void Keyboard_MainThread( void *pvParameters ) {
 				break;
 		}
 		xQueueSend(xQueueMain, acQueueEvent, QUEUE_WAIT);
-		vTaskDelay(10);
 	}
 }
 
