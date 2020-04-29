@@ -108,7 +108,6 @@ void ServoCalib (void) {
 	struct ServoControl sControl;
 	
 	sControl.eFunction = F_CALIB;
-	sControl.uiValue = 0;
 	xQueueSend(xQueueControl, &sControl, QUEUE_WAIT);
 }
 

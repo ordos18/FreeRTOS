@@ -1,8 +1,5 @@
 #include "FreeRTOS.h"
 #include "task.h"
-#include "led.h"
-#include "semphr.h"
-#include "string.h"
 #include "servo.h"
 #include "keyboard.h"
 
