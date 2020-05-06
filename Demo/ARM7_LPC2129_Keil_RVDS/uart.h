@@ -1,6 +1,6 @@
 
-#define RECEIVER_SIZE 30
-//#define TRANSMITER_SIZE 100
+#define RECEIVER_SIZE 20
+#define TRANSMITER_SIZE 30
 
 
 void UART_InitWithInt(unsigned int uiBaudRate);
