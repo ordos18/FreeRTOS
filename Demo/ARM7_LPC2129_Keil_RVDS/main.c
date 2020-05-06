@@ -9,7 +9,6 @@
 #include "servo.h"
 
 #define QUEUE_SIZE 10
-#define QUEUE_WAIT 1
 
 QueueHandle_t xQueueMain;
 
@@ -21,7 +20,7 @@ void UartRx_MainThread( void *pvParameters ) {
 	
 	while(1){
 		UART_GetString(acQueueEvent);
-		xQueueSend(xQueueMain, acQueueEvent, QUEUE_WAIT);
+		xQueueSend(xQueueMain, acQueueEvent, 0);
 		
 		DecodeMsg(acQueueEvent);
 		if( (ucTokenNr > 0) && (asToken[0].eType == KEYWORD) ) {
@@ -37,8 +36,6 @@ void UartRx_MainThread( void *pvParameters ) {
 				default: {}
 			}
 		}
-		
-		vTaskDelay(10);
 	}
 }
 
@@ -69,7 +66,7 @@ void Keyboard_MainThread( void *pvParameters ) {
 			default:
 				break;
 		}
-		xQueueSend(xQueueMain, acQueueEvent, QUEUE_WAIT);
+		xQueueSend(xQueueMain, acQueueEvent, 0);
 	}
 }
 
@@ -114,8 +111,6 @@ void Executor_MainThread( void *pvParameters ) {
 				default: {}
 			}
 		}
-		
-		vTaskDelay(10);
 	}
 }
 

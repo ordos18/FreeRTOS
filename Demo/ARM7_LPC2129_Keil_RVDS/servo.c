@@ -7,7 +7,7 @@
 
 #define DETECTOR_bm (1 << 10)		//P0.10
 #define FULL_ROTATION 48
-#define CONTROL_QUEUE_SIZE 3
+#define CONTROL_QUEUE_SIZE 10
 #define STATUS_QUEUE_SIZE 1
 #define QUEUE_WAIT 1
 

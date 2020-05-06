@@ -9,8 +9,8 @@ unsigned char ucTokenNr;
 
 struct Keyword asKeywordList[MAX_KEYWORD_NR] =
 {
-	{ID, "id"  },
 	{CALIB,	"calib"	},
+	{ID, "id"  },
 	{GOTO,	"goto"	},
 	{STATE,	"state"	}
 };
